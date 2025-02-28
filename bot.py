@@ -9,7 +9,7 @@ import os
 load_dotenv()
 
 # استبدل 'YOUR_TELEGRAM_BOT_TOKEN' برمز البوت الخاص بك
-TELEGRAM_BOT_TOKEN = os.getenv("6334414905:AAHd90fVpkItvitF7ARK71s-0lAv1cAkUsg")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 # إنشاء كائن البوت
 bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)
