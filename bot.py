@@ -1,86 +1,96 @@
 import os
+import logging
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from PyPDF2 import PdfReader
-from deep_translator import GoogleTranslator
+from googletrans import Translator
+from reportlab.pdfgen import canvas
+from io import BytesIO
 
-# إعدادات التسجيل
+# تهيئة المترجم
+translator = Translator()
+
+# تمكين اللوغاريثمات
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-# تهيئة المترجم
-translator = Translator()
+logger = logging.getLogger(__name__)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('مرحبا! أرسل لي ملف PDF باللغة الإنجليزية وسأقوم بترجمته إلى العربية.')
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text('مرحبا! أرسل لي ملف PDF باللغة الإنجليزية وسأقوم بترجمته إلى العربية.')
 
-async def handle_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.message.from_user
-    file = await update.message.document.get_file()
+def extract_text_from_pdf(pdf_file):
+    text = ""
+    pdf_reader = PdfReader(pdf_file)
+    for page in pdf_reader.pages:
+        text += page.extract_text()
+    return text
 
-    # تنزيل الملف
-    pdf_path = f'temp_{user.id}.pdf'
-    await file.download_to_drive(pdf_path)
+def translate_text(text, src='en', dest='ar'):
+    translated = translator.translate(text, src=src, dest=dest)
+    return translated.text
+
+def create_translated_pdf(translated_text, output_filename):
+    packet = BytesIO()
+    can = canvas.Canvas(packet)
     
+    # إعداد النص العربي (تتطلب تثبيت خطوط عربية)
+    can.setFont('Helvetica', 12)
+    
+    # تقسيم النص إلى أسطر
+    lines = translated_text.split('\n')
+    
+    y = 800  # بداية الكتابة من أعلى الصفحة
+    for line in lines:
+        can.drawString(72, y, line)
+        y -= 15  # التباعد بين الأسطر
+        if y < 50:  # إنشاء صفحة جديدة عند الوصول لأسفل الصفحة
+            can.showPage()
+            y = 800
+    
+    can.save()
+    packet.seek(0)
+    return packet
+
+def handle_document(update: Update, context: CallbackContext):
     try:
-        # استخراج النص من PDF
-        text = ""
-        with open(pdf_path, 'rb') as f:
-            reader = PdfReader(f)
-            for page in reader.pages:
-                text += page.extract_text()
+        # تحميل الملف
+        file = update.message.document.get_file()
+        pdf_file = BytesIO(file.download_as_bytearray())
         
-        # الترجمة إلى العربية
-        translated = translator.translate(text, src='en', dest='ar').text
+        # استخراج النص
+        original_text = extract_text_from_pdf(pdf_file)
         
-        # إرسال النص المترجم كملف
-        output_path = f'translated_{user.id}.txt'
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(translated)
+        # الترجمة
+        translated_text = translate_text(original_text)
         
-        await update.message.reply_document(
-            document=output_path,
-            caption='ها هو النص المترجم'
+        # إنشاء PDF مترجم
+        output_pdf = create_translated_pdf(translated_text, "translated.pdf")
+        
+        # إرسال الملف المترجم
+        update.message.reply_document(
+            document=output_pdf,
+            filename="translated_ar.pdf",
+            caption="ها هو ملفك المترجم إلى العربية"
         )
         
     except Exception as e:
-        await update.message.reply_text(f'حدث خطأ: {str(e)}')
-    finally:
-        # تنظيف الملفات المؤقتة
-        if os.path.exists(pdf_path):
-            os.remove(pdf_path)
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        logger.error(e)
+        update.message.reply_text('حدث خطأ أثناء معالجة الملف. يرجى التأكد من أن الملف صحيح.')
 
 def main():
-    # الحصول على توكن البوت من البيئة
-    token = os.getenv('TELEGRAM_BOT_TOKEN')
-    if not token:
-        raise ValueError("لم يتم تعيين TELEGRAM_BOT_TOKEN في البيئة")
-    
-    # إنشاء التطبيق
-    application = Application.builder().token(token).build()
-    
-    # تسجيل ال handlers
-    application.add_handler(CommandHandler('start', start))
-    application.add_handler(MessageHandler(filters.Document.PDF, handle_pdf))
-    
-    # إعدادات النشر على Railway
-    port = int(os.environ.get('PORT', 8443))
-    webhook_url = os.getenv('WEBHOOK_URL')
-    
-    if webhook_url:
-        # وضع النشر على Railway
-        application.run_webhook(
-            listen='0.0.0.0',
-            port=port,
-            webhook_url=webhook_url
-        )
-    else:
-        # وضع التطوير المحلي
-        application.run_polling()
+    # استبدل 'YOUR_TELEGRAM_BOT_TOKEN' بالتوكن الخاص بك
+    updater = Updater(token='YOUR_TELEGRAM_BOT_TOKEN', use_context=True)
+    dp = updater.dispatcher
+
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("help", start))
+    dp.add_handler(MessageHandler(Filters.document, handle_document))
+
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == '__main__':
     main()
