@@ -1,0 +1,6 @@
+# أضف هذا في railway.json
+{
+  "build": {
+    "builder": "NIXPACKS"
+  }
+}
