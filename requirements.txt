@@ -1,7 +1,4 @@
-python-telegram-bot==20.3
+python-telegram-bot==13.15
 PyPDF2==3.0.0
-googletrans==3.0.0  # الإصدار الرسمي الأكثر استقرارًا
-reportlab==4.0.4
-arabic-reshaper==3.0.0
-python-bidi==0.4.2
-pillow==10.1.0  # مطلوب لمعالجة الخطوط
+googletrans==4.0.0rc1
+
