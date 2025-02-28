@@ -1,37 +1,37 @@
-# Base image
 FROM python:3.11-slim
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     FONTCONFIG_PATH=/etc/fonts
 
-# Install system dependencies
+# تثبيت التبعيات النظامية الأساسية
 RUN apt-get update && apt-get install -y \
     gcc \
     python3-dev \
     libfreetype6-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    libraqm-dev \
     fonts-arabeyes \
     fonts-noto \
     fontconfig \
     && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
+# إنشاء مستخدم غير root
 RUN useradd -m botuser
 WORKDIR /app
 RUN chown botuser:botuser /app
 USER botuser
 
-# Copy requirements first for caching
+# نسخ المتطلبات أولاً
 COPY --chown=botuser:botuser requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+# تثبيت بايثون dependencies مع إصلاح الإصدارات
+RUN pip install --no-cache-dir pip==23.3.1 \
+    && pip install --no-cache-dir -r requirements.txt --use-pep517
 
-# Copy application code
+# نسخ باقي الملفات
 COPY --chown=botuser:botuser . .
 
-# Set entrypoint
 CMD ["python", "bot.py"]
