@@ -1,9 +1,8 @@
 import os
-import logging
 from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from PyPDF2 import PdfReader
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 
 # إعدادات التسجيل
 logging.basicConfig(
