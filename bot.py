@@ -30,9 +30,13 @@ def translate_text(text):
     return translation.text
 
 def create_translated_pdf(original_file_name, translated_text):
-    translated_file_name = f"translated_{original_file_name}"
+    translated_file_name = f"translated_{original_file_name}.pdf"
     c = canvas.Canvas(translated_file_name)
-    c.drawString(100, 750, translated_text)  # يمكنك تعديل الموضع والتنسيق هنا
+    lines = translated_text.split('\n')
+    y = 750
+    for line in lines:
+        c.drawString(100, y, line)
+        y -= 20
     c.save()
     return translated_file_name
 
