@@ -5,6 +5,8 @@ from googletrans import Translator
 from dotenv import load_dotenv
 import os
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 import traceback
 
 load_dotenv()
@@ -16,7 +18,10 @@ if TELEGRAM_BOT_TOKEN is None:
     exit(1)
 
 bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)
-translator = Translator()  # إنشاء كائن المترجم مرة واحدة
+translator = Translator()
+
+# تسجيل الخط العربي
+pdfmetrics.registerFont(TTFont('ArabicFont', 'Arial.ttf'))  # استبدل 'arial-unicode-ms.ttf' بمسار ملف الخط
 
 def extract_text_from_pdf(file_path):
     text = ""
@@ -24,7 +29,7 @@ def extract_text_from_pdf(file_path):
         with open(file_path, 'rb') as file:
             reader = PyPDF2.PdfReader(file)
             for page in reader.pages:
-                text += page.extract_text() or ""  # التعامل مع الصفحات الفارغة
+                text += page.extract_text() or ""
     except Exception as e:
         print(f"Error extracting text: {e}")
         traceback.print_exc()
@@ -42,6 +47,7 @@ def translate_text(text):
 def create_translated_pdf(original_file_name, translated_text):
     translated_file_name = f"translated_{original_file_name}.pdf"
     c = canvas.Canvas(translated_file_name)
+    c.setFont('ArabicFont', 12)
     lines = translated_text.split('\n')
     y = 750
     for line in lines:
@@ -51,7 +57,7 @@ def create_translated_pdf(original_file_name, translated_text):
         except Exception as e:
             print(f"Error drawing line: {e}")
             traceback.print_exc()
-            y -= 20  # للمتابعة حتى في حالة حدوث خطأ
+            y -= 20
     c.save()
     return translated_file_name
 
@@ -65,7 +71,7 @@ def handle_document(update, context):
 
     try:
         text = extract_text_from_pdf(file_path)
-        if not text.strip():  # التحقق من أن النص ليس فارغًا
+        if not text.strip():
             context.bot.send_message(chat_id=update.effective_chat.id, text="لم يتم العثور على نص في ملف PDF.")
             return
 
