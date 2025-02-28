@@ -17,4 +17,4 @@ COPY . .
 ENV TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
 
 # قم بتشغيل التطبيق
-CMD ["python", "your_bot_script.py"]
+CMD ["python", "bot.py"]
