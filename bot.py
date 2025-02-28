@@ -9,7 +9,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 TOKEN = "6334414905:AAHd90fVpkItvitF7ARK71s-0lAv1cAkUsg"
 
 def extract_text_from_pdf(input_file):
-    """ استخراج النص من ملف PDF باستخدام pdfplumber """
+    """ استخراج النص من ملف PDF """
     text = ""
     try:
         with pdfplumber.open(input_file) as pdf:
@@ -23,8 +23,8 @@ def extract_text_from_pdf(input_file):
     return text if text.strip() else None
 
 def translate_text(text, target_lang="ar"):
-    """ تقسيم النص إلى أجزاء صغيرة وترجمتها """
-    chunk_size = 5000  # الحد الأقصى لكل طلب ترجمة
+    """ ترجمة النص إلى العربية """
+    chunk_size = 5000  # تقسيم النصوص الطويلة
     chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
     
     translated_chunks = []
@@ -39,14 +39,19 @@ def translate_text(text, target_lang="ar"):
     return "\n".join(translated_chunks)
 
 def create_pdf(text, output_path):
-    """ تحويل النص المترجم إلى ملف PDF """
+    """ إنشاء ملف PDF جديد باستخدام خط يدعم العربية """
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("Arial", size=12)
 
+    # تحميل الخط العربي
+    font_path = "arial.ttf"  # تأكد من وجود الخط في نفس مجلد المشروع
+    pdf.add_font("Arabic", "", font_path, uni=True)
+    pdf.set_font("Arabic", size=12)
+
+    # إضافة النص مع محاذاته لليمين
     for line in text.split("\n"):
-        pdf.multi_cell(0, 10, txt=line)
+        pdf.multi_cell(0, 10, txt=line, align="R")
 
     pdf.output(output_path)
 
