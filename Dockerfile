@@ -8,6 +8,7 @@ COPY requirements.txt .
 # تحديث pip وتثبيت المكتبات من ملف المتطلبات
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # نسخ باقي ملفات التطبيق إلى الحاوية
 COPY . .
