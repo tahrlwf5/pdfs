@@ -21,7 +21,7 @@ if TELEGRAM_BOT_TOKEN is None:
 bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)
 translator = Translator()
 
-pdfmetrics.registerFont(TTFont('ArabicFont', 'arial-unicode-ms.ttf'))  # استبدل بمسار الخط
+pdfmetrics.registerFont(TTFont('ArabicFont', 'Arial.ttf'))  # استبدل بمسار الخط
 
 def extract_text_from_pdf(file_path):
     text = ""
