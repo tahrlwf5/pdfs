@@ -1,25 +1,20 @@
-# استخدم صورة بايثون خفيفة
-FROM python:3.10-slim
+# استخدم صورة بايثون الرسمية كصورة أساسية
+FROM python:3.9-slim-buster
 
-# تحديد مجلد العمل داخل الحاوية
+# قم بتعيين دليل العمل داخل الحاوية
 WORKDIR /app
 
-# تحديث النظام وتثبيت الخطوط المطلوبة
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libffi-dev \
-    libxml2-dev \
-    libxslt1-dev \
-    fonts-dejavu \
-    && rm -rf /var/lib/apt/lists/*
+# انسخ ملفات requirements.txt و .env إلى دليل العمل
+COPY requirements.txt .env ./
 
-# نسخ الملفات إلى الحاوية
-COPY requirements.txt . 
-COPY bot.py . 
-COPY arial.ttf /app/ 
-
-# تثبيت المتطلبات
+# قم بتثبيت المكتبات المطلوبة
 RUN pip install --no-cache-dir -r requirements.txt
 
-# تشغيل البوت عند بدء التشغيل
-CMD ["python", "bot.py"]
+# انسخ باقي ملفات التطبيق إلى دليل العمل
+COPY . .
+
+# قم بتعيين متغير البيئة TELEGRAM_BOT_TOKEN
+ENV TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+
+# قم بتشغيل التطبيق
+CMD ["python", "your_bot_script.py"]
