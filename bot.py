@@ -8,6 +8,7 @@ from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import traceback
+import arabic_reshaper
 
 load_dotenv()
 
@@ -20,8 +21,7 @@ if TELEGRAM_BOT_TOKEN is None:
 bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)
 translator = Translator()
 
-# تسجيل الخط العربي
-pdfmetrics.registerFont(TTFont('ArabicFont', 'Arial.ttf'))  # استبدل 'arial-unicode-ms.ttf' بمسار ملف الخط
+pdfmetrics.registerFont(TTFont('ArabicFont', 'arial-unicode-ms.ttf'))  # استبدل بمسار الخط
 
 def extract_text_from_pdf(file_path):
     text = ""
@@ -52,7 +52,8 @@ def create_translated_pdf(original_file_name, translated_text):
     y = 750
     for line in lines:
         try:
-            c.drawString(100, y, line)
+            reshaped_line = arabic_reshaper.reshape(line)
+            c.drawString(100, y, reshaped_line[::-1])
             y -= 20
         except Exception as e:
             print(f"Error drawing line: {e}")
