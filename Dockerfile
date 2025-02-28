@@ -2,18 +2,22 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# تحديث النظام وتثبيت أدوات البناء وبعض المكتبات الأساسية
+# تثبيت الأدوات اللازمة
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libffi-dev \
     libxml2-dev \
     libxslt1-dev \
+    ttf-mscorefonts-installer \
     && rm -rf /var/lib/apt/lists/*
 
+# نسخ الملفات إلى الحاوية
 COPY requirements.txt .
+COPY arial.ttf /app/  # نسخ الخط العربي إلى الحاوية
+COPY bot.py /app/
 
-RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+# تثبيت المكتبات
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
-
+# تشغيل البوت
 CMD ["python", "bot.py"]
