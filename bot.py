@@ -1,97 +1,57 @@
-import telegram
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-import PyPDF2
-from googletrans import Translator
-from dotenv import load_dotenv
-import os
-from reportlab.pdfgen import canvas
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-import traceback
-import arabic_reshaper
+import io
+import logging
+from telegram import Update
+from telegram.ext import Application, MessageHandler, filters, ContextTypes
+import aiohttp
 
-load_dotenv()
+# إعدادات البوت
+TOKEN = "YOUR_BOT_TOKEN"
+ALLOWED_EXTENSIONS = {'.docx', '.pptx'}
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+# تفعيل التسجيل للأخطاء
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
-if TELEGRAM_BOT_TOKEN is None:
-    print("Error: TELEGRAM_BOT_TOKEN is not set. Please check your .env file or Docker environment variables.")
-    exit(1)
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    document = update.message.document
+    file_name = document.file_name or ""
+    
+    if not any(file_name.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS):
+        await update.message.reply_text("❌ يرجى إرسال ملف بامتداد .docx أو .pptx")
+        return
 
-bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)
-translator = Translator()
-
-pdfmetrics.registerFont(TTFont('ArabicFont', 'Arial.ttf'))  # استبدل بمسار الخط
-
-def extract_text_from_pdf(file_path):
-    text = ""
+    await update.message.reply_text("⏳ جاري المعالجة...")
+    
     try:
-        with open(file_path, 'rb') as file:
-            reader = PyPDF2.PdfReader(file)
-            for page in reader.pages:
-                text += page.extract_text() or ""
+        # تحميل الملف من تليجرام
+        file = await context.bot.get_file(document.file_id)
+        file_bytes = await file.download_as_bytearray()
+        
+        # إرسال الملف إلى i2pdf.com
+        async with aiohttp.ClientSession() as session:
+            form_data = aiohttp.FormData()
+            form_data.add_field('file', file_bytes, filename=file_name)
+            
+            async with session.post('https://i2pdf.com/upload', data=form_data) as response:
+                if response.status == 200 and response.content_type == 'application/pdf':
+                    pdf_bytes = await response.read()
+                    
+                    # إرسال الملف المحوّل
+                    await update.message.reply_document(
+                        document=io.BytesIO(pdf_bytes),
+                        filename=f"{file_name.split('.')[0]}.pdf"
+                    )
+                else:
+                    await update.message.reply_text("❌ فشل التحويل، يرجى المحاولة لاحقًا")
     except Exception as e:
-        print(f"Error extracting text: {e}")
-        traceback.print_exc()
-    return text
+        logging.error(f"Error: {e}")
+        await update.message.reply_text("❌ حدث خطأ أثناء المعالجة")
 
-def translate_text(text):
-    try:
-        translation = translator.translate(text, src='en', dest='ar')
-        return translation.text
-    except Exception as e:
-        print(f"Translation error: {e}")
-        traceback.print_exc()
-        return "حدث خطأ في الترجمة."
-
-def create_translated_pdf(original_file_name, translated_text):
-    translated_file_name = f"translated_{original_file_name}.pdf"
-    c = canvas.Canvas(translated_file_name)
-    c.setFont('ArabicFont', 12)
-    lines = translated_text.split('\n')
-    y = 750
-    for line in lines:
-        try:
-            reshaped_line = arabic_reshaper.reshape(line)
-            c.drawString(100, y, reshaped_line[::-1])
-            y -= 20
-        except Exception as e:
-            print(f"Error drawing line: {e}")
-            traceback.print_exc()
-            y -= 20
-    c.save()
-    return translated_file_name
-
-def start(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="أرسل لي ملف PDF لترجمته.")
-
-def handle_document(update, context):
-    file = context.bot.get_file(update.message.document.file_id)
-    file_path = f'{update.message.document.file_name}'
-    file.download(file_path)
-
-    try:
-        text = extract_text_from_pdf(file_path)
-        if not text.strip():
-            context.bot.send_message(chat_id=update.effective_chat.id, text="لم يتم العثور على نص في ملف PDF.")
-            return
-
-        translated_text = translate_text(text)
-        translated_file_name = create_translated_pdf(update.message.document.file_name, translated_text)
-        context.bot.send_document(chat_id=update.effective_chat.id, document=open(translated_file_name, 'rb'))
-    except Exception as e:
-        context.bot.send_message(chat_id=update.effective_chat.id, text=f"حدث خطأ: {e}")
-        traceback.print_exc()
-    finally:
-        os.remove(file_path)
-        if 'translated_file_name' in locals() and os.path.exists(translated_file_name):
-            os.remove(translated_file_name)
-
-updater = Updater(token=TELEGRAM_BOT_TOKEN, use_context=True)
-dispatcher = updater.dispatcher
-
-dispatcher.add_handler(CommandHandler('start', start))
-dispatcher.add_handler(MessageHandler(Filters.document, handle_document))
-
-updater.start_polling()
-updater.idle()
+if __name__ == '__main__':
+    application = Application.builder().token(TOKEN).build()
+    application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    
+    logging.info("Bot is running...")
+    application.run_polling()
