@@ -27,7 +27,7 @@ def get_aspose_token():
 def translate_pdf(file_path, target_language="ar"):
     try:
         token = get_aspose_token()
-        translate_url = "https://api.aspose.ai/v1.0/pdf/translate"
+        translate_url = "https://api.aspose.ai/v3.0/pdf/translate"
         headers = {"Authorization": f"Bearer {token}"}
         files = {"file": open(file_path, "rb")}
         data = {"targetLanguage": target_language}
