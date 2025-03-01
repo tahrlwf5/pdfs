@@ -1,6 +1,2 @@
-python-telegram-bot
-PyPDF2
-googletrans==4.0.0rc1
-python-dotenv
-reportlab
-arabic-reshaper
+python-telegram-bot==20.3
+aiohttp==3.8.6
