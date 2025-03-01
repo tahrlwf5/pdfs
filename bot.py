@@ -27,20 +27,16 @@ def get_aspose_token():
 def translate_pdf(file_path, target_language="ar"):
     try:
         token = get_aspose_token()
-        translate_url = "https://api.aspose.ai/v1.0/pdf/translate"
+        translate_url = "https://api.aspose.cloud/v4.0/pdf/translate"  # المسار الجديد
         headers = {"Authorization": f"Bearer {token}"}
         files = {"file": open(file_path, "rb")}
         data = {"targetLanguage": target_language}
 
         response = requests.post(translate_url, headers=headers, files=files, data=data)
-        response.raise_for_status()  # يرفع استثناء إذا كان هناك خطأ
-        
+        response.raise_for_status()
         return response.content
-    except requests.exceptions.HTTPError as http_err:
-        error_msg = f"خطأ في Aspose API: {http_err}\nالاستجابة: {response.text}"
-        raise Exception(error_msg)
     except Exception as e:
-        raise Exception(f"خطأ غير متوقع: {str(e)}")
+        raise Exception(f"خطأ في الترجمة: {str(e)}")
 
 # دالة لمعالجة أمر /start
 def start(update: Update, context: CallbackContext):
