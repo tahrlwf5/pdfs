@@ -1,6 +1,5 @@
 import os
 import requests
-from requests_toolbelt.multipart.encoder import MultipartEncoder
 from telegram import Update, InputFile
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
@@ -9,7 +8,7 @@ ASPOSE_CLIENT_ID = "e01bc130-02d3-4cf4-9f0e-39e9190c17ad"  # App SID
 ASPOSE_CLIENT_SECRET = "5ddd7b591d433f3c93e70e18db36d358"  # App Key
 TELEGRAM_BOT_TOKEN = "6016945663:AAFYr1oaLltIgeMtw5Lb5uSabyVWL4R7UcU"  # توكن البوت
 
-# دالة للحصول على Token من Aspose
+# دالة للحصول على Token من Aspose مع معالجة الأخطاء
 def get_aspose_token():
     try:
         auth_url = "https://api.aspose.cloud/connect/token"
@@ -19,35 +18,29 @@ def get_aspose_token():
             "client_secret": ASPOSE_CLIENT_SECRET
         }
         response = requests.post(auth_url, data=auth_data)
-        response.raise_for_status()
+        response.raise_for_status()  # يرفع استثناء إذا كان هناك خطأ
         return response.json().get("access_token")
     except Exception as e:
         raise Exception(f"فشل الحصول على Token: {str(e)}")
 
-# دالة لترجمة ملف PDF
+# دالة لترجمة ملف PDF مع تسجيل الأخطاء
 def translate_pdf(file_path, target_language="ar"):
     try:
         token = get_aspose_token()
-        translate_url = "https://api.aspose.cloud/v3.0/pdf/translate"
-        
-        # إعداد البيانات بشكل صحيح باستخدام MultipartEncoder
-        multipart_data = MultipartEncoder(
-            fields={
-                "file": (os.path.basename(file_path), open(file_path, "rb"), "application/pdf"),
-                "targetLanguage": target_language
-            }
-        )
-        
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": multipart_data.content_type  # تحديد نوع المحتوى تلقائيًا
-        }
+        translate_url = "https://api.aspose.ai/v1.0/pdf/translate"
+        headers = {"Authorization": f"Bearer {token}"}
+        files = {"file": open(file_path, "rb")}
+        data = {"targetLanguage": target_language}
 
-        response = requests.post(translate_url, headers=headers, data=multipart_data)
-        response.raise_for_status()
+        response = requests.post(translate_url, headers=headers, files=files, data=data)
+        response.raise_for_status()  # يرفع استثناء إذا كان هناك خطأ
+        
         return response.content
+    except requests.exceptions.HTTPError as http_err:
+        error_msg = f"خطأ في Aspose API: {http_err}\nالاستجابة: {response.text}"
+        raise Exception(error_msg)
     except Exception as e:
-        raise Exception(f"خطأ في الترجمة: {str(e)}")
+        raise Exception(f"خطأ غير متوقع: {str(e)}")
 
 # دالة لمعالجة أمر /start
 def start(update: Update, context: CallbackContext):
