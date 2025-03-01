@@ -5,7 +5,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 
 # تكوين المفاتيح
 ASPOSE_CLIENT_ID = "e01bc130-02d3-4cf4-9f0e-39e9190c17ad"  # App SID
-ASPOSE_CLIENT_SECRET = "e952086756d6bd8d5f8a525464ae676e"  # App Key
+ASPOSE_CLIENT_SECRET = "5ddd7b591d433f3c93e70e18db36d358"  # App Key
 TELEGRAM_BOT_TOKEN = "6016945663:AAFYr1oaLltIgeMtw5Lb5uSabyVWL4R7UcU"  # توكن البوت
 
 # دالة للحصول على Token من Aspose
