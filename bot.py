@@ -1,58 +1,99 @@
-import io
-import logging
-from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
-import aiohttp
+import os
+import requests
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler
 
-# إعدادات البوت
-TOKEN = "6016945663:AAFYr1oaLltIgeMtw5Lb5uSabyVWL4R7UcU"
-ALLOWED_EXTENSIONS = {'.pdf'}
+ILOVEPDF_API_KEY = "project_public_427a705fefe6806d93e71e594366e8f4_BB-az04a88ec77d44e6ba4915582b9b20692a"
+BOT_TOKEN = "6016945663:AAFYr1oaLltIgeMtw5Lb5uSabyVWL4R7UcU"
 
-# تفعيل التسجيل للأخطاء
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+async def start(update: Update, context: CallbackContext):
+    await update.message.reply_text("مرحبًا! أرسل لي ملف PDF لتحويله إلى DOCX أو PPTX")
 
-async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_document(update: Update, context: CallbackContext):
     document = update.message.document
-    file_name = document.file_name or ""
     
-    if not any(file_name.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS):
-        await update.message.reply_text("❌ يرجى إرسال ملف بامتداد .pdf")
+    if document.mime_type != 'application/pdf':
+        await update.message.reply_text("الرجاء إرسال ملف PDF فقط")
         return
+    
+    file = await context.bot.get_file(document.file_id)
+    file_path = f"temp_{document.file_id}.pdf"
+    await file.download_to_drive(file_path)
+    
+    context.user_data['file_path'] = file_path
+    
+    keyboard = [
+        [InlineKeyboardButton("PDF إلى DOCX", callback_data='pdf2docx'),
+         InlineKeyboardButton("PDF إلى PPTX", callback_data='pdf2pptx')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text("اختر نوع التحويل:", reply_markup=reply_markup)
 
-    await update.message.reply_text("⏳ جاري المعالجة...")
+async def handle_conversion(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+    
+    conversion_type = query.data
+    file_path = context.user_data.get('file_path')
+    
+    if not file_path or not os.path.exists(file_path):
+        await query.edit_message_text("حدث خطأ، الرجاء إعادة المحاولة")
+        return
     
     try:
-        # تحميل الملف من تليجرام
-        file = await context.bot.get_file(document.file_id)
-        file_bytes = await file.download_as_bytearray()
+        download_url = await convert_file(file_path, conversion_type)
+        converted_file = download_file(download_url)
         
-        # إرسال الملف إلى i2pdf.com (أو أي خدمة تدعم التحويل من PDF إلى DOCX/PPTX)
-        async with aiohttp.ClientSession() as session:
-            form_data = aiohttp.FormData()
-            form_data.add_field('file', file_bytes, filename=file_name)
-            
-            # هنا نحدد نوع التحويل (مثلاً إلى DOCX)
-            async with session.post('https://i2pdf.com/upload', data=form_data) as response:
-                if response.status == 200 and response.content_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation']:
-                    converted_bytes = await response.read()
-                    
-                    # إرسال الملف المحوّل
-                    await update.message.reply_document(
-                        document=io.BytesIO(converted_bytes),
-                        filename=f"{file_name.split('.')[0]}.docx"  # أو .pptx حسب النوع المطلوب
-                    )
-                else:
-                    await update.message.reply_text("❌ فشل التحويل، يرجى المحاولة لاحقًا")
+        await context.bot.send_document(
+            chat_id=query.message.chat_id,
+            document=converted_file,
+            filename=f"converted_{conversion_type}.{conversion_type.split('2')[-1]}"
+        )
+        
     except Exception as e:
-        logging.error(f"Error: {e}")
-        await update.message.reply_text("❌ حدث خطأ أثناء المعالجة")
+        await query.edit_message_text(f"فشل التحويل: {str(e)}")
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
-if __name__ == '__main__':
-    application = Application.builder().token(TOKEN).build()
-    application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+async def convert_file(file_path: str, task: str):
+    # Create task
+    create_task_url = f"https://api.ilovepdf.com/v1/{task}"
+    headers = {"Authorization": f"Bearer {ILOVEPDF_API_KEY}"}
     
-    logging.info("Bot is running...")
+    response = requests.post(create_task_url, headers=headers)
+    response.raise_for_status()
+    task_data = response.json()
+    
+    # Upload file
+    upload_url = task_data['server'] + task_data['task']
+    files = {'file': open(file_path, 'rb')}
+    response = requests.post(upload_url, files=files)
+    response.raise_for_status()
+    
+    # Process file
+    process_url = f"https://{task_data['server']}/v1/process"
+    response = requests.post(process_url, headers=headers, json={'task': task_data['task']})
+    response.raise_for_status()
+    
+    # Get download link
+    download_url = f"https://{task_data['server']}/v1/download/{task_data['task']}"
+    return download_url
+
+def download_file(url: str):
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.content
+
+def main():
+    application = Application.builder().token(BOT_TOKEN).build()
+    
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    application.add_handler(CallbackQueryHandler(handle_conversion))
+    
     application.run_polling()
+
+if __name__ == "__main__":
+    main()
