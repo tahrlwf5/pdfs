@@ -1,20 +1,27 @@
-# استخدم صورة بايثون الرسمية كصورة أساسية
-FROM python:3.9-slim-buster
+# Use official Python image
+FROM python:3.11-slim-bullseye
 
-# قم بتعيين دليل العمل داخل الحاوية
+# Set working directory
 WORKDIR /app
 
-# انسخ ملفات requirements.txt و .env إلى دليل العمل
-COPY requirements.txt .env ./
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# قم بتثبيت المكتبات المطلوبة
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# انسخ باقي ملفات التطبيق إلى دليل العمل
+# Copy the rest of the application
 COPY . .
 
-# قم بتعيين متغير البيئة TELEGRAM_BOT_TOKEN
-ENV TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+# Expose port (not necessary for polling but required for Railway)
+EXPOSE 80
 
-# قم بتشغيل التطبيق
+# Health check
+HEALTHCHECK CMD curl --fail http://localhost:80 || exit 1
+
+# Run the bot
 CMD ["python", "bot.py"]
