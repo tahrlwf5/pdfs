@@ -5,8 +5,8 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes
 import aiohttp
 
 # إعدادات البوت
-TOKEN = "YOUR_BOT_TOKEN"
-ALLOWED_EXTENSIONS = {'.docx', '.pptx'}
+TOKEN = "6016945663:AAFYr1oaLltIgeMtw5Lb5uSabyVWL4R7UcU"
+ALLOWED_EXTENSIONS = {'.pdf'}
 
 # تفعيل التسجيل للأخطاء
 logging.basicConfig(
@@ -19,7 +19,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_name = document.file_name or ""
     
     if not any(file_name.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS):
-        await update.message.reply_text("❌ يرجى إرسال ملف بامتداد .docx أو .pptx")
+        await update.message.reply_text("❌ يرجى إرسال ملف بامتداد .pdf")
         return
 
     await update.message.reply_text("⏳ جاري المعالجة...")
@@ -29,19 +29,20 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file = await context.bot.get_file(document.file_id)
         file_bytes = await file.download_as_bytearray()
         
-        # إرسال الملف إلى i2pdf.com
+        # إرسال الملف إلى i2pdf.com (أو أي خدمة تدعم التحويل من PDF إلى DOCX/PPTX)
         async with aiohttp.ClientSession() as session:
             form_data = aiohttp.FormData()
             form_data.add_field('file', file_bytes, filename=file_name)
             
+            # هنا نحدد نوع التحويل (مثلاً إلى DOCX)
             async with session.post('https://i2pdf.com/upload', data=form_data) as response:
-                if response.status == 200 and response.content_type == 'application/pdf':
-                    pdf_bytes = await response.read()
+                if response.status == 200 and response.content_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation']:
+                    converted_bytes = await response.read()
                     
                     # إرسال الملف المحوّل
                     await update.message.reply_document(
-                        document=io.BytesIO(pdf_bytes),
-                        filename=f"{file_name.split('.')[0]}.pdf"
+                        document=io.BytesIO(converted_bytes),
+                        filename=f"{file_name.split('.')[0]}.docx"  # أو .pptx حسب النوع المطلوب
                     )
                 else:
                     await update.message.reply_text("❌ فشل التحويل، يرجى المحاولة لاحقًا")
